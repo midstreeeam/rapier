@@ -27,6 +27,8 @@ mod restitution2;
 mod rope_joints2;
 mod sensor2;
 mod trimesh2;
+mod joint_motor_fix;
+mod joint_limit_fix;
 
 fn demo_name_from_command_line() -> Option<String> {
     let mut args = std::env::args();
@@ -61,6 +63,7 @@ pub fn main() {
         .to_camel_case();
 
     let mut builders: Vec<(_, fn(&mut Testbed))> = vec![
+        ("Joint limit fix", joint_limit_fix::init_world),
         ("Add remove", add_remove2::init_world),
         ("CCD", ccd2::init_world),
         ("Character controller", character_controller2::init_world),
@@ -80,14 +83,15 @@ pub fn main() {
         ("Sensor", sensor2::init_world),
         ("Trimesh", trimesh2::init_world),
         ("(Debug) box ball", debug_box_ball2::init_world),
+        ("Joint motor fix", joint_motor_fix::init_world),
     ];
 
-    // Lexicographic sort, with stress tests moved at the end of the list.
-    builders.sort_by(|a, b| match (a.0.starts_with("("), b.0.starts_with("(")) {
-        (true, true) | (false, false) => a.0.cmp(b.0),
-        (true, false) => Ordering::Greater,
-        (false, true) => Ordering::Less,
-    });
+    // // Lexicographic sort, with stress tests moved at the end of the list.
+    // builders.sort_by(|a, b| match (a.0.starts_with("("), b.0.starts_with("(")) {
+    //     (true, true) | (false, false) => a.0.cmp(b.0),
+    //     (true, false) => Ordering::Greater,
+    //     (false, true) => Ordering::Less,
+    // });
 
     let i = builders
         .iter()
