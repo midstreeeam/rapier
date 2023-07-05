@@ -34,17 +34,35 @@ pub fn init_world(testbed: &mut Testbed) {
     let joint = RevoluteJointBuilder::new()
         .local_anchor2(point![x_pos, 1.5])
         .local_anchor1(point![0.0, -0.5])
-        .motor_position(-150f32.to_radians(), 30.0, 1.0);
+        .motor_position(-150f32.to_radians(), 30.0, 1.0)
+        .limits([-145f32.to_radians(), 145f32.to_radians()]);
     impulse_joints.insert(handle, ground_handle, joint, true);
-    
 
-    // set limits
-    for (_, joint) in impulse_joints.iter_mut(){
-        joint.data.set_limits(
-            JointAxis::AngX,
-            [-45f32.to_radians(), 45f32.to_radians()]
-        ); 
-    }
+
+    /*
+     * 2 rectangls on a motor
+     */
+
+     let x_pos = 1.0 as f32;
+     let rigid_body = RigidBodyBuilder::dynamic().translation(vector![x_pos, 1.0]);
+     let handle1 = bodies.insert(rigid_body);
+     let collider = ColliderBuilder::cuboid(0.5, 0.1);
+     colliders.insert_with_parent(collider, handle1, &mut bodies);
+
+     let x_pos = 2.0 as f32;
+     let rigid_body = RigidBodyBuilder::dynamic().translation(vector![x_pos, 1.0]);
+     let handle2 = bodies.insert(rigid_body);
+     let collider = ColliderBuilder::cuboid(0.5, 0.1);
+     colliders.insert_with_parent(collider, handle2, &mut bodies);
+ 
+     let joint = RevoluteJointBuilder::new()
+         .local_anchor2(point![0.5, 0.0])
+         .local_anchor1(point![-0.5, 0.0])
+         .motor_position(-150f32.to_radians(), 30.0, 0.0)
+         .contacts_enabled(false)
+         .limits([-145f32.to_radians(),145f32.to_radians()]);
+    impulse_joints.insert(handle1, handle2, joint, true);
+    
 
     /*
      * Set up the testbed.
