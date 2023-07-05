@@ -288,18 +288,31 @@ impl<N: WReal> JointVelocityConstraintBuilder<N> {
         let zero = N::zero();
         let half = N::splat(0.5);
         let s_limits = [(limits[0] * half).simd_sin(), (limits[1] * half).simd_sin()];
-        #[cfg(feature = "dim2")]
-        let s_ang = self.ang_err.im;
+
+        let s_ang_dist = self.ang_err.angle();
+        let over_half_pi = s_ang_dist.simd_abs().simd_gt(N::simd_frac_pi_2());
+
         #[cfg(feature = "dim3")]
         let s_ang = self.ang_err.imag()[limited_axis];
-        let min_enabled = s_ang.simd_lt(s_limits[0]);
-        let max_enabled = s_limits[1].simd_lt(s_ang);
 
+        #[cfg(feature = "dim2")]
+        let min_triggered = s_ang_dist.simd_lt(limits[0]);
+        #[cfg(feature = "dim3")]
+        let min_triggered = s_ang.simd_lt(s_limits[0]);
+    
+        #[cfg(feature = "dim2")]
+        let max_triggered = limits[1].simd_lt(s_ang_dist);
+        #[cfg(feature = "dim3")]
+        let max_triggered = s_limits[1].simd_lt(s_ang);
+
+        let i0_flag = (over_half_pi & max_triggered) | (!over_half_pi & min_triggered);
+        let i1_flag = (over_half_pi & min_triggered) | (!over_half_pi & max_triggered);
+    
         let impulse_bounds = [
-            N::splat(-Real::INFINITY).select(min_enabled, zero),
-            N::splat(Real::INFINITY).select(max_enabled, zero),
+            N::splat(-Real::INFINITY).select(i0_flag, zero),
+            N::splat(Real::INFINITY).select(i1_flag, zero),
         ];
-
+    
         #[cfg(feature = "dim2")]
         let ang_jac = self.ang_basis[limited_axis];
         #[cfg(feature = "dim3")]
@@ -309,9 +322,12 @@ impl<N: WReal> JointVelocityConstraintBuilder<N> {
 
         let erp_inv_dt = N::splat(params.joint_erp_inv_dt());
         let cfm_coeff = N::splat(params.joint_cfm_coeff());
-        let rhs_bias = ((s_ang - s_limits[1]).simd_max(zero)
-            - (s_limits[0] - s_ang).simd_max(zero))
+
+        let ni_rhs_bias = ((limits[1] - s_ang_dist).simd_max(zero)
+            - (s_ang_dist - limits[0]).simd_max(zero))
             * erp_inv_dt;
+        let i_rhs_bias = -ni_rhs_bias;
+        let rhs_bias = i_rhs_bias.select(over_half_pi, ni_rhs_bias);
 
         let ang_jac1 = body1.sqrt_ii * ang_jac;
         let ang_jac2 = body2.sqrt_ii * ang_jac;
@@ -851,33 +867,49 @@ impl<N: WReal> JointVelocityConstraintBuilder<N> {
         let zero = N::zero();
         let half = N::splat(0.5);
         let s_limits = [(limits[0] * half).simd_sin(), (limits[1] * half).simd_sin()];
-        #[cfg(feature = "dim2")]
-        let s_ang = self.ang_err.im;
+        
+        let s_ang_dist = self.ang_err.angle();
+        let over_half_pi = s_ang_dist.simd_abs().simd_gt(N::simd_frac_pi_2());
+    
         #[cfg(feature = "dim3")]
         let s_ang = self.ang_err.imag()[limited_axis];
-        let min_enabled = s_ang.simd_lt(s_limits[0]);
-        let max_enabled = s_limits[1].simd_lt(s_ang);
+    
+        #[cfg(feature = "dim2")]
+        let min_triggered = s_ang_dist.simd_lt(limits[0]);
+        #[cfg(feature = "dim3")]
+        let min_triggered = s_ang.simd_lt(s_limits[0]);
+    
+        #[cfg(feature = "dim2")]
+        let max_triggered = limits[1].simd_lt(s_ang_dist);
+        #[cfg(feature = "dim3")]
+        let max_triggered = s_limits[1].simd_lt(s_ang);
 
+        let i0_flag = (over_half_pi & max_triggered) | (!over_half_pi & min_triggered);
+        let i1_flag = (over_half_pi & min_triggered) | (!over_half_pi & max_triggered);
+    
         let impulse_bounds = [
-            N::splat(-Real::INFINITY).select(min_enabled, zero),
-            N::splat(Real::INFINITY).select(max_enabled, zero),
+            N::splat(-Real::INFINITY).select(i0_flag, zero),
+            N::splat(Real::INFINITY).select(i1_flag, zero),
         ];
-
+    
         #[cfg(feature = "dim2")]
         let ang_jac = self.ang_basis[limited_axis];
         #[cfg(feature = "dim3")]
         let ang_jac = self.ang_basis.column(limited_axis).into_owned();
         let dvel = ang_jac.gdot(body2.angvel) - ang_jac.gdot(body1.angvel);
         let rhs_wo_bias = dvel;
-
+    
         let erp_inv_dt = N::splat(params.joint_erp_inv_dt());
         let cfm_coeff = N::splat(params.joint_cfm_coeff());
-        let rhs_bias = ((s_ang - s_limits[1]).simd_max(zero)
-            - (s_limits[0] - s_ang).simd_max(zero))
+    
+        let ni_rhs_bias = ((limits[1] - s_ang_dist).simd_max(zero)
+            - (s_ang_dist - limits[0]).simd_max(zero))
             * erp_inv_dt;
-
+        let i_rhs_bias = -ni_rhs_bias;
+        let rhs_bias = i_rhs_bias.select(over_half_pi, ni_rhs_bias);
+    
         let ang_jac2 = body2.sqrt_ii * ang_jac;
-
+    
         JointVelocityGroundConstraint {
             joint_id,
             mj_lambda2: body2.mj_lambda,
@@ -894,6 +926,7 @@ impl<N: WReal> JointVelocityConstraintBuilder<N> {
             writeback_id,
         }
     }
+    
 
     pub fn lock_angular_ground<const LANES: usize>(
         &self,
