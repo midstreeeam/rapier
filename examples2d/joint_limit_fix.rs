@@ -34,7 +34,7 @@ pub fn init_world(testbed: &mut Testbed) {
     let joint = RevoluteJointBuilder::new()
         .local_anchor2(point![x_pos, 1.5])
         .local_anchor1(point![0.0, -0.5])
-        .motor_position(-150f32.to_radians(), 30.0, 1.0)
+        .motor_position(-150f32.to_radians(), 300.0, 1.0)
         .limits([-145f32.to_radians(), 145f32.to_radians()]);
     impulse_joints.insert(handle, ground_handle, joint, true);
 
@@ -58,9 +58,9 @@ pub fn init_world(testbed: &mut Testbed) {
      let joint = RevoluteJointBuilder::new()
          .local_anchor2(point![0.5, 0.0])
          .local_anchor1(point![-0.5, 0.0])
-         .motor_position(-150f32.to_radians(), 30.0, 0.0)
+         .motor_position(-150f32.to_radians(), 300.0, 0.0)
          .contacts_enabled(false)
-         .limits([-145f32.to_radians(),145f32.to_radians()]);
+         .limits([-120f32.to_radians(),120f32.to_radians()]);
     impulse_joints.insert(handle1, handle2, joint, true);
     
 
