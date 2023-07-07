@@ -368,6 +368,7 @@ impl JointVelocityConstraintBuilder<Real> {
             min_enabled as u32 as Real * -Real::MAX,
             max_enabled as u32 as Real * Real::MAX,
         ];
+        println!("debug{:#?}",impulse_bounds);
 
         let erp_inv_dt = params.joint_erp_inv_dt();
         let rhs_bias =
